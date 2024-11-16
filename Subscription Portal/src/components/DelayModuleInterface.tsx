@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { getDelayModule } from './gnosis-pay.js';
-import GnosisPayErc20Transfer from './GnosisPayErc20Transfer';
+import GnosisPayErc20Transfer from './GnosisPayErc20Transfer.jsx';
 
 // Styled-components
 const Container = styled.div`
