@@ -1,6 +1,6 @@
 # InnoFi - Cross-Chain Lending Platform
 
-**InnoFi** is a decentralized cross-chain lending platform that allows users to borrow against collateral, including unpaid invoices for small businesses. With features like on-chain credit scores, multi-source price feeds, and rewards based on **Pyth Entropy**, InnoFi ensures secure, efficient, and transparent lending.
+**InnoFi** is a decentralized cross-chain lending platform that allows users to borrow against collateral, including unpaid invoices for small businesses. With features like on-chain credit scores, multi-source price feeds, and rewards using on **Pyth Entropy**, InnoFi ensures secure, efficient, and transparent lending.
 
 
 ## Key Features
