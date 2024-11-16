@@ -6,11 +6,10 @@ import {OApp, MessagingFee, Origin} from "@layerzerolabs/lz-evm-oapp-v2/contract
 import {MessagingReceipt} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OAppSender.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IOracle} from "./interfaces/oracles/IOracle.sol";
-// import { ONFT721 } from "./onft721/ONFT721.sol";
-// import {ONFT721} from "./onft721/ONFT721Simplified.sol";
-import {OAppOptionsType3} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OAppOptionsType3.sol";
+import {IEntropy} from "@pythnetwork/entropy-sdk-solidity/IEntropy.sol";
+import {IEntropyConsumer} from "@pythnetwork/entropy-sdk-solidity/IEntropyConsumer.sol";
 
-contract SrcPool is OApp, OAppOptionsType3 {
+contract SrcPool is OApp, Ownable, IEntropyConsumer {
     uint16 public constant SEND = 1;
 
     struct PoolMetadata {
@@ -18,7 +17,7 @@ contract SrcPool is OApp, OAppOptionsType3 {
         address dstPoolAddress;
         address poolOwner;
         uint256 poolBalance;
-        address poolToken;
+        address poolToken; // USDC token
         address oracleAddress;
         uint256[] oraclePricesIndex;
         address collateralToken;
@@ -38,23 +37,28 @@ contract SrcPool is OApp, OAppOptionsType3 {
 
     mapping(address => Loan) public loans;
 
+    IEntropy public entropy; // Randomness provider contract
+
+    event RewardAssigned(address indexed borrower, uint256 reward);
+
     constructor(
         address _endpoint,
         address _delegate,
         uint32 _dstChainId,
         address _dstPoolAddress,
-        address _poolToken,
+        address _poolToken, // USDC token address
         address _oracleAddress,
         uint256[] memory _oraclePricesIndex,
         address _collateralToken,
         uint256 _ltv,
         uint256 _apr,
-        uint256 _expiry
+        uint256 _expiry,
+        address _entropyAddress
     ) OApp(_endpoint, _delegate) Ownable(_delegate) {
         poolMetadata.dstChainId = _dstChainId;
         poolMetadata.dstPoolAddress = _dstPoolAddress;
         poolMetadata.poolOwner = _delegate;
-        poolMetadata.poolToken = _poolToken;
+        poolMetadata.poolToken = _poolToken; // USDC
         poolMetadata.oracleAddress = _oracleAddress;
         poolMetadata.oraclePricesIndex = _oraclePricesIndex;
         poolMetadata.collateralToken = _collateralToken;
@@ -63,36 +67,15 @@ contract SrcPool is OApp, OAppOptionsType3 {
         poolMetadata.expiry = _expiry;
 
         poolMetadata.poolBalance = 0;
+
+        entropy = IEntropy(_entropyAddress); // Initialize entropy provider
     }
 
-    function quote(
-        bytes memory _message,
-        bytes calldata _extraSendOptions,
-        bool _payInLzToken
-    ) public view returns (MessagingFee memory totalFee) {
-        bytes memory options = combineOptions(
-            poolMetadata.dstChainId,
-            SEND,
-            _extraSendOptions
-        );
-        MessagingFee memory fee = _quote(
-            poolMetadata.dstChainId,
-            _message,
-            options,
-            _payInLzToken
-        );
-        totalFee.nativeFee += fee.nativeFee;
-        totalFee.lzTokenFee += fee.lzTokenFee;
-    }
-
-    function repayLoan(
-        bytes calldata _extraSendOptions
-    ) external payable returns (MessagingReceipt memory receipt) {
+    function repayLoan(bytes calldata _extraSendOptions) external payable returns (MessagingReceipt memory receipt) {
         require(loans[msg.sender].amount > 0, "Pool: no loan to repay");
         require(block.timestamp <= poolMetadata.expiry, "Pool: loan expired");
         require(
-            IERC20(poolMetadata.poolToken).balanceOf(msg.sender) >=
-                getRepaymentAmount(msg.sender),
+            IERC20(poolMetadata.poolToken).balanceOf(msg.sender) >= getRepaymentAmount(msg.sender),
             "Pool: insufficient balance"
         );
 
@@ -115,8 +98,17 @@ contract SrcPool is OApp, OAppOptionsType3 {
         );
         delete loans[msg.sender];
 
+        // Generate randomness for reward
+        bytes32 userSeed = keccak256(abi.encodePacked(msg.sender, block.timestamp));
+        uint256 fee = entropy.getFee(entropy.getDefaultProvider());
+
+        entropy.requestWithCallback{value: fee}(
+            entropy.getDefaultProvider(),
+            userSeed
+        );
+
         bytes memory payload = abi.encode(msg.sender);
-        MessagingFee memory fee = _quote(
+        MessagingFee memory feeEstimate = _quote(
             poolMetadata.dstChainId,
             payload,
             options,
@@ -126,20 +118,31 @@ contract SrcPool is OApp, OAppOptionsType3 {
             poolMetadata.dstChainId,
             payload,
             options,
-            fee,
+            feeEstimate,
             payable(msg.sender)
         );
     }
 
-    /// @dev requires approval from user
-    function deposit(uint256 _amount) external {
-        require(_amount > 0, "Pool: amount must be greater than 0");
-        IERC20(poolMetadata.poolToken).transferFrom(
-            msg.sender,
-            address(this),
-            _amount
+    function entropyCallback(
+        uint64 sequenceNumber,
+        address provider,
+        bytes32 randomNumber
+    ) internal override {
+        require(msg.sender == address(entropy), "Unauthorized entropy callback");
+
+        uint256 reward = (uint256(randomNumber) % 5) + 1; // Random number between 1 and 5 USDC
+        require(
+            IERC20(poolMetadata.poolToken).balanceOf(address(this)) >= reward * 10**6,
+            "Pool: insufficient reward balance"
         );
-        poolMetadata.poolBalance += _amount;
+
+        // Transfer the reward to the user
+        require(
+            IERC20(poolMetadata.poolToken).transfer(msg.sender, reward * 10**6),
+            "Pool: reward transfer failed"
+        );
+
+        emit RewardAssigned(msg.sender, reward);
     }
 
     function getRepaymentAmount(address _sender) public view returns (uint256) {
@@ -200,5 +203,9 @@ contract SrcPool is OApp, OAppOptionsType3 {
 
     function getPoolMetadata() external view returns (PoolMetadata memory) {
         return poolMetadata;
+    }
+
+    function getEntropy() internal view override returns (address) {
+        return address(entropy);
     }
 }
