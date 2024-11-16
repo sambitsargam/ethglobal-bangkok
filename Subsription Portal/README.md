@@ -8,9 +8,7 @@ This application allows small businesses to subscribe to access their Onchain Cr
   - **Checkout** for crypto payments (USDC).
   - **Wallet** for wallet funding.
   - **Identity** for viewing Onchain Ens Details .
-- **CDP SDK Integration**: 
-  - Enables lending/borrowing based on Onchain Credit Score.
-  - Programmatic on-chain interactions (collateral management, loan triggering).
+- **CDP SDK Integration**
   
 ## Used Technologies:
 - **OnchainKit**: For checkout, wallet, and on-chain Identity.
