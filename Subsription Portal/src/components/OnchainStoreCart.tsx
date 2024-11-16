@@ -81,19 +81,27 @@ export default function OnchainStoreCart({
 
   return (
     <div className="-mx-[50vw] fixed right-1/2 bottom-0 left-1/2 w-screen border-gray-200 border-t bg-[white]">
-      <div className="mx-auto max-w-5xl ">
+      <div className="mx-auto max-w-5xl">
         <div className="flex flex-col items-start justify-between py-4 md:flex-row md:items-center">
           <span className="mb-2 hidden px-4 text-xs sm:flex md:mb-0 md:w-1/3 lg:px-6">
             Built with OnchainKit
           </span>
-          <div className="flex w-full grow flex-col items-center justify-between gap-2 px-4 sm:flex-row sm:gap-0 md:w-auto lg:px-6">
+          <div className="flex w-full grow flex-col items-center justify-between gap-4 px-4 sm:flex-row sm:gap-4 md:w-auto lg:px-6">
             <h2 className="font-bold text-lg md:w-11/12 ">
               TOTAL {totalSum.toFixed(2)} USDC
             </h2>
-            <div className="w-64">
+            
+            {/* Pay with Gnosis Pay Button */}
+            <button
+              className="gnosis-pay-button bg-green-500 text-white font-semibold py-2 px-4 rounded-lg w-full sm:w-auto hover:bg-green-600 transition-all"
+            >
+              <a href='/pay'>Gnosis Pay</a>
+            </button>
 
-            <FundButton fundingUrl={onrampBuyUrl} />
-            </div>
+            {/* Fund Button */}
+            <FundButton fundingUrl={onrampBuyUrl} className="w-full sm:w-auto" />
+
+            {/* Coinbase Checkout Button */}
             <div className="w-64">
               <Checkout
                 key={key}
