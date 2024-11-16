@@ -10,9 +10,6 @@ This application allows small businesses to subscribe to access their Onchain Cr
   - **Identity** for viewing Onchain Ens Details .
 - **CDP SDK Integration**
   
-## Used Technologies:
-- **OnchainKit**: For checkout, wallet, and on-chain Identity.
-- **CDP SDK**: For collateralized debt positions and DeFi functionality.
 
 ## Setup:
 1. Clone the repository.
